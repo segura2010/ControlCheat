@@ -1,10 +1,8 @@
-//#![feature(asm)]
-
 extern crate user32;
 extern crate winapi;
 
 use std::ffi::CString;
-use ilhook::x64::{Hooker, HookType, Registers, CallbackOption, HookFlags};
+use colored::*;
 
 const GAME_EXE:&str = "Control_DX11.exe";
 static mut GAME_BASE: usize = 0;
@@ -24,40 +22,34 @@ extern "system" fn DllMain(hinstDLL: *const u8, fdwReason: u32, lpReserved: *con
 			initialize();
 		},
 		winapi::um::winnt::DLL_PROCESS_DETACH => {
-			
-		}
-		_ => println!("Nothing to do :)"),
+			// TODO: disable hooks?
+		},
+		_ => (),
 	}
 
 	return 1;
 }
 
 fn initialize(){
-	let lp_text = CString::new("Control Cheat").unwrap();
-	let lp_caption = CString::new("Cheat injected!").unwrap();
-
 	unsafe {
-		user32::MessageBoxA(
-			std::ptr::null_mut(),
-			lp_text.as_ptr(),
-			lp_caption.as_ptr(),
-			winapi::um::winuser::MB_OK | winapi::um::winuser::MB_ICONINFORMATION
-		);
-	
 		// activate console for debugging
 		winapi::um::consoleapi::AllocConsole();
+		println!("{} {}", "CONTROL".blue(), "CHEAT".red());
 
+		// get game base address
 		let game_main_module = CString::new(GAME_EXE).unwrap();
 		let main_handle = winapi::um::libloaderapi::GetModuleHandleA(game_main_module.as_ptr()) as usize;
 		GAME_BASE = main_handle;
 		println!("Main module handle/base addr: {:x}", main_handle);
 	}
 
-	// do hooks
+	println!("Activating hooks..");
+	// set up hooks
 	unsafe{
 		enable_infinite_ammo();
 		enable_infinite_health();
 	}
+	println!("Hooks activated!");
 }
 
 unsafe fn enable_infinite_ammo(){
@@ -89,8 +81,14 @@ unsafe extern "fastcall" fn enable_infinite_health(){
 	println!("[!] Health offset: {:x}, {:x}", healthfn_offset, *healthfn_ptr);
 }
 
-//#[naked]
-unsafe extern "C" fn health_hook(){
-	//asm!("nop");
-	println!("Called hook!");
+unsafe extern "C" fn health_hook(obj: usize, p1: i64, p2:u8, p3:u8){
+	println!("Called hook! args({:x}, {:x}, {:x}, {:x})", obj, p1, p2, p3);
+	let is_player = (obj +  0xA8) as *const u8;
+	if *is_player == 1{
+		println!("is a player..");
+	} else {
+		println!("is a monster!");
+		let obj_health = (obj + 0x64) as *mut f32;
+		*obj_health = 0f32;
+	}
 }
