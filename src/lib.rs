@@ -2,7 +2,6 @@ extern crate user32;
 extern crate winapi;
 
 use std::ffi::CString;
-use colored::*;
 
 const GAME_EXE:&str = "Control_DX11.exe";
 static mut GAME_BASE: usize = 0;
@@ -34,7 +33,9 @@ fn initialize(){
 	unsafe {
 		// activate console for debugging
 		winapi::um::consoleapi::AllocConsole();
-		println!("{} {}", "CONTROL".blue(), "CHEAT".red());
+		println!("=================");
+		println!("= CONTROL CHEAT =");
+		println!("=================");
 
 		// get game base address
 		let game_main_module = CString::new(GAME_EXE).unwrap();
