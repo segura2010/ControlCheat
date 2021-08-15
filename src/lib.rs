@@ -1,6 +1,9 @@
 extern crate user32;
 extern crate winapi;
 
+use std::thread;
+use std::time::Duration;
+
 use std::ffi::CString;
 
 const GAME_EXE:&str = "Control_DX11.exe";
@@ -12,6 +15,8 @@ const HEALTH_DECFN_OFFSET: usize = 0x3246D0;
 
 const HOOKING_MOV_RAX: u16 = 0xb848; // mov eax,
 const HOOKING_PUSH_RAX_RET: u16 = 0xc350; // push eax; ret;
+
+static mut DO_ONESHOT: bool = true;
 
 #[no_mangle]
 extern "system" fn DllMain(hinstDLL: *const u8, fdwReason: u32, lpReserved: *const u8) -> u32 {
@@ -51,6 +56,27 @@ fn initialize(){
 		enable_infinite_health();
 	}
 	println!("Hooks activated!");
+	println!("Running keypress detection loop");
+	// run keypress detection loop
+	thread::spawn(|| {
+		keypress_detection_loop();
+	});
+}
+
+fn keypress_detection_loop(){
+	loop{
+		let mut f5_pressed: i16 = 0;
+		unsafe{
+			f5_pressed = winapi::um::winuser::GetAsyncKeyState(winapi::um::winuser::VK_F5) & (1 << 15);
+		}
+		if f5_pressed != 0 {
+			unsafe{
+				DO_ONESHOT = !DO_ONESHOT;
+				println!("DO_ONESHOT = {}", DO_ONESHOT);
+			}
+		}
+		thread::sleep(Duration::from_millis(100));
+	}
 }
 
 unsafe fn enable_infinite_ammo(){
@@ -88,8 +114,12 @@ unsafe extern "C" fn health_hook(obj: usize, p1: i64, p2:u8, p3:u8){
 	if *is_player == 1{
 		println!("is a player..");
 	} else {
-		println!("is a monster!");
 		let obj_health = (obj + 0x64) as *mut f32;
-		*obj_health = 0f32;
+		println!("is a monster (health = {})!", *obj_health);
+		if DO_ONESHOT || (*obj_health < 0.2f32){
+			*obj_health = 0f32;
+		} else {
+			*obj_health = 0.1f32;
+		}
 	}
 }
