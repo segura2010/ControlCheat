@@ -13,6 +13,8 @@ const AMMO_MINSS_OFFSET: usize = 0x3B7570;
 
 const HEALTH_DECFN_OFFSET: usize = 0x3246D0;
 
+const ENERGY_DECFN_OFFSET: usize = 0xF3740;
+
 const HOOKING_MOV_RAX: u16 = 0xb848; // mov eax,
 const HOOKING_PUSH_RAX_RET: u16 = 0xc350; // push eax; ret;
 
@@ -54,6 +56,7 @@ fn initialize(){
 	unsafe{
 		enable_infinite_ammo();
 		enable_infinite_health();
+		//enable_infinite_energy();
 	}
 	println!("Hooks activated!");
 	println!("Running keypress detection loop");
@@ -79,6 +82,22 @@ fn keypress_detection_loop(){
 	}
 }
 
+unsafe fn set_hook(original_func: usize, hook_func: usize){
+	let mut old_prot: u32 = 0;
+	let originalfn_ptr = original_func as *mut usize;
+	let originalfn_mov_rax = original_func as *mut u16;
+	let originalfn_mov_rax_value = (original_func+2) as *mut usize;
+	let originalfn_push_rax_ret = (original_func+10) as *mut u16;
+
+	println!("[!] Original code at {:x}: {:x}", original_func, *originalfn_ptr);
+	winapi::um::memoryapi::VirtualProtect(originalfn_ptr as _, 15, winapi::um::winnt::PAGE_EXECUTE_READWRITE, &mut old_prot);
+	*originalfn_mov_rax = HOOKING_MOV_RAX;
+	*originalfn_mov_rax_value = (hook_func as *const ()) as usize;
+	*originalfn_push_rax_ret = HOOKING_PUSH_RAX_RET;
+	winapi::um::memoryapi::VirtualProtect(originalfn_ptr as _, 15, old_prot, &mut old_prot);
+	println!("[!] Replaced code at {:x}: {:x}", original_func, *originalfn_ptr);
+}
+
 unsafe fn enable_infinite_ammo(){
 	let mut old_prot: u32 = 0;
 	let ammo_offset = GAME_BASE + AMMO_MINSS_OFFSET as usize;
@@ -92,20 +111,8 @@ unsafe fn enable_infinite_ammo(){
 }
 
 unsafe extern "fastcall" fn enable_infinite_health(){
-	let mut old_prot: u32 = 0;
-	let healthfn_offset = GAME_BASE + HEALTH_DECFN_OFFSET as usize;
-	let healthfn_ptr = healthfn_offset as *mut usize;
-	let healthfn_mov_rax = healthfn_offset as *mut u16;
-	let healthfn_mov_rax_value = (healthfn_offset+2) as *mut usize;
-	let healthfn_push_rax_ret = (healthfn_offset+10) as *mut u16;
-
-	println!("[!] Health offset: {:x}, {:x}", healthfn_offset, *healthfn_ptr);
-	winapi::um::memoryapi::VirtualProtect(healthfn_ptr as _, 15, winapi::um::winnt::PAGE_EXECUTE_READWRITE, &mut old_prot);
-	*healthfn_mov_rax = HOOKING_MOV_RAX;
-	*healthfn_mov_rax_value = (health_hook as *const ()) as usize;
-	*healthfn_push_rax_ret = HOOKING_PUSH_RAX_RET;
-	winapi::um::memoryapi::VirtualProtect(healthfn_ptr as _, 15, old_prot, &mut old_prot);
-	println!("[!] Health offset: {:x}, {:x}", healthfn_offset, *healthfn_ptr);
+	let healthfn_address = GAME_BASE + HEALTH_DECFN_OFFSET as usize;
+	set_hook(healthfn_address, std::mem::transmute(health_hook as *const ()));
 }
 
 unsafe extern "C" fn health_hook(obj: usize, p1: i64, p2:u8, p3:u8){
@@ -122,4 +129,14 @@ unsafe extern "C" fn health_hook(obj: usize, p1: i64, p2:u8, p3:u8){
 			*obj_health = 0.1f32;
 		}
 	}
+}
+
+unsafe fn enable_infinite_energy(){
+	let energyfn_address = GAME_BASE + ENERGY_DECFN_OFFSET as usize;
+	set_hook(energyfn_address, (decrement_energy_hook as *const ()) as usize);
+}
+
+unsafe extern "C" fn decrement_energy_hook(obj: usize, p1: f32){
+	// TODO: it must return an struct...
+	println!("[!] Energy Hook -> args({:x}, {})", obj, p1);
 }
