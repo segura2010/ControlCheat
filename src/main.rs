@@ -12,7 +12,7 @@ use sysinfo::{ProcessExt, System, SystemExt};
 
 fn main() {
 	let current_dir = env::current_exe().unwrap();
-	let dll_path = current_dir.as_path().parent().unwrap().join("control_cheat.dll");
+	let dll_path = current_dir.as_path().parent().unwrap().join("control_cheat_dll.dll");
 	if !dll_path.exists(){
 		println!("ERROR: {} not exists!!", dll_path.to_str().unwrap());
 		return;
