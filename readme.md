@@ -19,3 +19,7 @@ It is just a cheat for CONTROL game (https://store.steampowered.com/app/870780/C
 I want to start to use Rust for future projects, so I need to practise. At the same time I wanted to do some game hacking stuff, so:
 
 Learn Rust + Game Hacking = Rust cheat for a game.
+
+### Video
+
+https://twitter.com/alberto__segura/status/1428036152322367492
